@@ -9,7 +9,7 @@ public sealed class WebViewController : IDisposable
     private IPlaywright? Playwright { get; set; }
     private IBrowser? Browser { get; set; }
 
-    private IPage? Page => Browser?.Contexts[0].Pages[0];
+    private IPage? Page => Browser?.Contexts.FirstOrDefault()?.Pages.FirstOrDefault();
 
     public Task Navigate(string url)
     {
