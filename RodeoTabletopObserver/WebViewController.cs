@@ -1,0 +1,110 @@
+﻿using Microsoft.Playwright;
+
+namespace RodeoTabletopObserver;
+
+public sealed class WebViewController : IDisposable
+{
+    private bool _disposedValue;
+
+    private IPlaywright? Playwright { get; set; }
+    private IBrowser? Browser { get; set; }
+
+    private IPage? Page => Browser?.Contexts[0].Pages[0];
+
+    public Task Navigate(string url)
+    {
+        if (Page is { } page)
+        {
+            return page.GotoAsync(url);
+        }
+        return Task.CompletedTask;
+    }
+
+    public async Task ConnectAsync(string endpointUrl)
+    {
+        if (Playwright is not null)
+        {
+            throw new InvalidOperationException("Already connected");
+        }
+
+        Playwright = await Microsoft.Playwright.Playwright.CreateAsync();
+        Browser = await Playwright.Chromium.ConnectOverCDPAsync(endpointUrl);
+        if (Page is { } page)
+        {
+            await page.RouteAsync(_ => true, async route =>
+            {
+                Uri requestUri = new(route.Request.Url);
+                if (requestUri.Host == "www.owlbear.app" &&
+                    requestUri.PathAndQuery.StartsWith("/assets/") &&
+                    requestUri.PathAndQuery.EndsWith(".css"))
+                {
+                    IAPIResponse response = await route.FetchAsync();
+                    string body = await response.TextAsync();
+                    if (response.Ok)
+                    {
+                        body += """
+                        #toolbar-container {
+                            visibility: collapse
+                        }
+                        #actions {
+                            visibility: collapse
+                        }
+                        div:has(> #extras-button) {
+                            visibility: collapse
+                        }
+                        """;
+                    }
+                    await route.FulfillAsync(new RouteFulfillOptions()
+                    {
+                        Body = body,
+                        Status = response.Status,
+                        Headers = response.Headers,
+                    });
+                }
+                else
+                {
+                    await route.ContinueAsync();
+                }
+            });
+        }
+        
+    }
+
+    public async Task ResetViewAsync()
+    {
+        if (Page is { } page)
+        {
+            try
+            {
+                await page.PressAsync("body", "Control+Alt+R", new PagePressOptions
+                {
+                    Timeout = 5_000
+                });
+            }
+            catch(TimeoutException)
+            {
+                //Ignoring timeouts
+            }
+        }
+    }
+
+    private void Dispose(bool disposing)
+    {
+        if (!_disposedValue)
+        {
+            if (disposing)
+            {
+                Playwright?.Dispose();
+                Browser = null;
+            }
+            _disposedValue = true;
+        }
+    }
+
+    public void Dispose()
+    {
+        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+}
