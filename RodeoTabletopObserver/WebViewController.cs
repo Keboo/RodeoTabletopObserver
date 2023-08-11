@@ -6,6 +6,18 @@ public sealed class WebViewController : IDisposable
 {
     private bool _disposedValue;
 
+    private static string[] ExpectedHosts { get; } = new[]
+    {
+        ".owlbear.rodeo",
+        ".owlbear.app",
+    };
+    private static string[] ItemsToHide { get; } = new[]
+    {
+        "#toolbar-container",
+        "#actions",
+        "div:has(> #extras-button)"
+    };
+
     private IPlaywright? Playwright { get; set; }
     private IBrowser? Browser { get; set; }
 
@@ -34,7 +46,7 @@ public sealed class WebViewController : IDisposable
             await page.RouteAsync(_ => true, async route =>
             {
                 Uri requestUri = new(route.Request.Url);
-                if (requestUri.Host == "www.owlbear.app" &&
+                if (ExpectedHosts.Any(x => requestUri.Host.EndsWith(x)) &&
                     requestUri.PathAndQuery.StartsWith("/assets/") &&
                     requestUri.PathAndQuery.EndsWith(".css"))
                 {
@@ -42,17 +54,14 @@ public sealed class WebViewController : IDisposable
                     string body = await response.TextAsync();
                     if (response.Ok)
                     {
-                        body += """
-                        #toolbar-container {
-                            visibility: collapse
+                        foreach (var selector in ItemsToHide)
+                        {
+                            body += $$"""
+                            {{selector}} {
+                                visibility: collapse
+                            }
+                            """;
                         }
-                        #actions {
-                            visibility: collapse
-                        }
-                        div:has(> #extras-button) {
-                            visibility: collapse
-                        }
-                        """;
                     }
                     await route.FulfillAsync(new RouteFulfillOptions()
                     {
@@ -67,7 +76,7 @@ public sealed class WebViewController : IDisposable
                 }
             });
         }
-        
+
     }
 
     public async Task ResetViewAsync()
@@ -81,7 +90,7 @@ public sealed class WebViewController : IDisposable
                     Timeout = 5_000
                 });
             }
-            catch(TimeoutException)
+            catch (TimeoutException)
             {
                 //Ignoring timeouts
             }
