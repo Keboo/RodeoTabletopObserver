@@ -6,17 +6,18 @@ public sealed class WebViewController : IDisposable
 {
     private bool _disposedValue;
 
-    private static string[] ExpectedHosts { get; } = new[]
-    {
+    private static string[] ExpectedHosts { get; } =
+    [
         ".owlbear.rodeo",
         ".owlbear.app",
-    };
-    private static string[] ItemsToHide { get; } = new[]
-    {
+    ];
+    private static string[] ItemsToHide { get; } =
+    [
         "#toolbar-container",
         "#actions",
-        "div:has(> #extras-button)"
-    };
+        "div:has(> #extras-button)",
+        ".MuiBox-root ~ div"
+    ];
 
     private IPlaywright? Playwright { get; set; }
     private IBrowser? Browser { get; set; }
